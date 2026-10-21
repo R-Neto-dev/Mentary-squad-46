@@ -22,6 +22,39 @@ A branch `main` é protegida e reflete sempre o código validado do projeto. Nen
 5. Não realizar commits ou pushes diretamente na `main`;
 6. Todo código destinado à `main` deve passar pelo fluxo de Pull Request.
 
+## Como executar o projeto (Docker)
+
+O projeto roda com Docker: um único comando sobe o backend e o frontend, sem precisar instalar Node nem dependências na sua máquina.
+
+### Instalação
+
+1. Instale o [Git](https://git-scm.com/downloads).
+2. Instale o [Docker Desktop](https://www.docker.com/products/docker-desktop/) e abra-o. Aguarde o status **Engine running** antes de rodar qualquer comando.
+
+### Subir os containers
+
+Na raiz do projeto.
+
+```bash
+docker compose up --build
+```
+
+Na primeira vez demora alguns minutos. Quando aparecerem `API rodando na porta 3000` e o `ready` do Vite, está pronto:
+
+- Frontend: http://localhost:5173
+- API: http://localhost:3000
+- Swagger: http://localhost:3000/docs
+
+### Descer os containers
+
+Pressione `Ctrl+C` no terminal e depois rode:
+
+```bash
+docker compose down
+```
+
+---
+
 ### Criando a sua branch
 
 ```bash
