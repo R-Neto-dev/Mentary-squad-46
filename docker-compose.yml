@@ -1,6 +1,23 @@
 services:
+  db:
+    image: postgres:16        # use a mesma versão major do Supabase da Mentary quando souber
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   backend:
     build: ./src/backend
+    env_file: .env
     ports:
       - "3000:3000"
     volumes:
@@ -8,6 +25,9 @@ services:
       - /app/node_modules
     environment:
       PORT: 3000
+    depends_on:
+      db:
+        condition: service_healthy
 
   frontend:
     build: ./src/frontend
@@ -20,3 +40,6 @@ services:
       VITE_API_URL: http://localhost:3000
     depends_on:
       - backend
+
+volumes:
+  pgdata:

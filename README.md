@@ -11,6 +11,49 @@
 
 ---
 
+## Como executar o projeto (Docker)
+
+O projeto roda com Docker: um único comando sobe o backend, o frontend e o banco de dados, sem precisar instalar Node, PostgreSQL nem dependências na sua máquina.
+
+### Instalação
+
+1. Instale o [Git](https://git-scm.com/downloads).
+2. Instale o [Docker Desktop](https://www.docker.com/products/docker-desktop/) e abra-o. Aguarde o status **Engine running** antes de rodar qualquer comando.
+
+### Subir os containers
+
+```bash
+git clone https://github.com/R-Neto-dev/Mentary-squad-46.git
+cd Mentary-squad-46
+cp .env.example .env
+docker compose up --build
+```
+
+No Windows (PowerShell), use `copy .env.example .env` no lugar do `cp`.
+
+Na primeira vez demora alguns minutos. Quando aparecerem `API rodando na porta 3000` e o `ready` do Vite, está pronto:
+
+- Frontend: http://localhost:5173
+- API: http://localhost:3000
+- Swagger: http://localhost:3000/docs
+- Teste do banco: http://localhost:3000/health/db
+
+### Descer os containers
+
+Pressione `Ctrl+C` no terminal e depois rode:
+
+```bash
+docker compose down
+```
+
+Para descer e também apagar os dados do banco:
+
+```bash
+docker compose down -v
+```
+
+---
+
 ## Fluxo de desenvolvimento
 
 A branch `main` é protegida e reflete sempre o código validado do projeto. Nenhuma alteração é enviada diretamente para ela: toda mudança passa por uma branch própria e por um Pull Request.
@@ -21,39 +64,6 @@ A branch `main` é protegida e reflete sempre o código validado do projeto. Nen
 4. Abrir um Pull Request para a branch `main`;
 5. Não realizar commits ou pushes diretamente na `main`;
 6. Todo código destinado à `main` deve passar pelo fluxo de Pull Request.
-
-## Como executar o projeto (Docker)
-
-O projeto roda com Docker: um único comando sobe o backend e o frontend, sem precisar instalar Node nem dependências na sua máquina.
-
-### Instalação
-
-1. Instale o [Git](https://git-scm.com/downloads).
-2. Instale o [Docker Desktop](https://www.docker.com/products/docker-desktop/) e abra-o. Aguarde o status **Engine running** antes de rodar qualquer comando.
-
-### Subir os containers
-
-Na raiz do projeto.
-
-```bash
-docker compose up --build
-```
-
-Na primeira vez demora alguns minutos. Quando aparecerem `API rodando na porta 3000` e o `ready` do Vite, está pronto:
-
-- Frontend: http://localhost:5173
-- API: http://localhost:3000
-- Swagger: http://localhost:3000/docs
-
-### Descer os containers
-
-Pressione `Ctrl+C` no terminal e depois rode:
-
-```bash
-docker compose down
-```
-
----
 
 ### Criando a sua branch
 
