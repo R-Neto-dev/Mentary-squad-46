@@ -38,6 +38,21 @@ Na primeira vez demora alguns minutos. Quando aparecerem `API rodando na porta 3
 - Swagger: http://localhost:3000/docs
 - Teste do banco: http://localhost:3000/health/db
 
+### Extrator de questões (backend)
+
+O endpoint `POST /extract` recebe um arquivo no campo multipart `file` e devolve
+uma prévia com o texto extraído e as questões separadas. São aceitos PDF,
+imagens (PNG, JPG, WEBP e BMP), TXT, CSV, XLSX, XLS e JSON, com limite de 10 MB.
+
+Exemplo no PowerShell:
+
+```powershell
+curl.exe -X POST -F "file=@questoes.pdf" http://localhost:3000/extract
+```
+
+O endpoint não grava nem aprova questões: ele apenas prepara a prévia para a
+revisão humana e para as próximas etapas do extrator.
+
 ### Descer os containers
 
 Pressione `Ctrl+C` no terminal e depois rode:
