@@ -1,0 +1,8 @@
+services:
+  backend:
+    build:
+      context: ./src/backend
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
