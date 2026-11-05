@@ -9,6 +9,7 @@ export type ExtractedQuestion = {
     page?: number;
     row?: number;
   };
+  confidence?: number;
 };
 
 export type ExtractionResult = {
@@ -17,21 +18,37 @@ export type ExtractionResult = {
   format: string;
   text: string;
   questions: ExtractedQuestion[];
+  ocr?: {
+    engine: "tesseract";
+    confidence: number;
+  };
 };
 
+// Detecta o início de uma questão numerada, aceitando os separadores mais comuns.
 const questionStart = /^(?:quest[aã]o\s*)?(\d{1,3})[.)\-:]\s*(.+)$/i;
+
+// Detecta alternativas no padrão A), A. ou A - texto, além de marcadores de lista.
 const optionStart = /^\s*(?:\(?([A-E])\)?\s*[.)\-:]\s*|[-*]\s+)(.+)$/i;
 
+// Extrai um arquivo e escolhe o leitor adequado ao formato recebido.
 export async function extractFile(
   file: Express.Multer.File,
 ): Promise<ExtractionResult> {
   const extension = file.originalname.split(".").pop()?.toLowerCase() ?? "";
 
   if (extension === "pdf" || file.mimetype === "application/pdf") {
+    // A primeira tentativa é sempre a extração nativa, que é mais rápida e precisa.
     const parser = new PDFParse({ data: file.buffer });
     try {
       const parsed = await parser.getText();
-      return buildResult(file, "pdf", parsed.text);
+      const text = cleanExtractedText(parsed.text);
+
+      // PDF escaneado normalmente não possui camada de texto; nesse caso, usa OCR.
+      if (text.length >= 20) {
+        return buildResult(file, "pdf", text);
+      }
+
+      return await extractPdfWithOcr(file, parser);
     } finally {
       await parser.destroy();
     }
@@ -39,17 +56,20 @@ export async function extractFile(
 
   if (["png", "jpg", "jpeg", "webp", "bmp"].includes(extension) ||
       file.mimetype.startsWith("image/")) {
-    const worker = await createWorker("por");
-    try {
-      const { data } = await worker.recognize(file.buffer);
-      return buildResult(file, "image", data.text);
-    } finally {
-      await worker.terminate();
-    }
+    // Imagens são processadas pelo Tesseract com o modelo de português.
+    const ocr = await recognizeImage(file.buffer);
+    return {
+      ...buildResult(file, "image", ocr.text),
+      ocr: { engine: "tesseract", confidence: ocr.confidence },
+    };
   }
 
   if (["csv", "txt"].includes(extension) || file.mimetype === "text/plain") {
-    return buildResult(file, extension === "csv" ? "csv" : "text", file.buffer.toString("utf8"));
+    return buildResult(
+      file,
+      extension === "csv" ? "csv" : "text",
+      file.buffer.toString("utf8"),
+    );
   }
 
   if (["xlsx", "xls"].includes(extension)) {
@@ -84,19 +104,68 @@ export function isUnsupportedFormatError(error: unknown): error is UnsupportedFo
   return error instanceof UnsupportedFormatError;
 }
 
+// Monta a resposta pública padronizada para todos os formatos textuais.
 function buildResult(
   file: Express.Multer.File,
   format: string,
   text: string,
   rows?: Record<string, unknown>[],
 ): ExtractionResult {
+  const cleanedText = cleanExtractedText(text);
+
   return {
     filename: file.originalname,
     mimetype: file.mimetype,
     format,
-    text: text.trim(),
-    questions: rows ? rowsToQuestions(rows) : parseQuestions(text),
+    text: cleanedText,
+    questions: rows ? rowsToQuestions(rows) : parseQuestions(cleanedText),
   };
+}
+
+// Executa OCR em todas as páginas de um PDF sem camada de texto.
+async function extractPdfWithOcr(
+  file: Express.Multer.File,
+  parser: PDFParse,
+): Promise<ExtractionResult> {
+  const screenshots = await parser.getScreenshot({
+    desiredWidth: 1800,
+    imageBuffer: true,
+  });
+  const pages: string[] = [];
+  const confidences: number[] = [];
+
+  for (const [index, page] of screenshots.pages.entries()) {
+    const ocr = await recognizeImage(Buffer.from(page.data));
+    pages.push(`[[PAGE:${index + 1}]]\n${ocr.text}`);
+    confidences.push(ocr.confidence);
+  }
+
+  const confidence = confidences.length > 0
+    ? confidences.reduce((sum, value) => sum + value, 0) / confidences.length
+    : 0;
+  const text = pages.join("\n");
+
+  return {
+    ...buildResult(file, "pdf-ocr", text),
+    ocr: { engine: "tesseract", confidence },
+  };
+}
+
+// Executa o motor OCR e devolve o texto junto com a confiança média do resultado.
+async function recognizeImage(
+  image: Buffer,
+): Promise<{ text: string; confidence: number }> {
+  const worker = await createWorker("por");
+  try {
+    const { data } = await worker.recognize(image);
+    return {
+      text: data.text,
+      confidence: data.confidence,
+    };
+  } finally {
+    // Encerra o worker para não deixar processos e memória presos no container.
+    await worker.terminate();
+  }
 }
 
 function buildJsonResult(file: Express.Multer.File): ExtractionResult {
@@ -136,10 +205,18 @@ function parseQuestions(text: string): ExtractedQuestion[] {
   const questions: ExtractedQuestion[] = [];
   let current: ExtractedQuestion | undefined;
   let currentOption: number | undefined;
+  let currentPage: number | undefined;
 
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.trim();
     if (!line) continue;
+
+    // Marcadores internos permitem manter a página quando o PDF precisou de OCR.
+    const pageMatch = line.match(/^\[\[PAGE:(\d+)\]\]$/);
+    if (pageMatch) {
+      currentPage = Number(pageMatch[1]);
+      continue;
+    }
 
     const questionMatch = line.match(questionStart);
     if (questionMatch) {
@@ -147,7 +224,7 @@ function parseQuestions(text: string): ExtractedQuestion[] {
       current = {
         statement: questionMatch[2].trim(),
         options: [],
-        source: { page: undefined },
+        source: { page: currentPage },
       };
       currentOption = undefined;
       continue;
@@ -179,6 +256,25 @@ function rowsToQuestions(rows: Record<string, unknown>[]): ExtractedQuestion[] {
     options: toStringArray(row.options ?? row.answer_options ?? row.alternatives),
     source: { row: index + 1 },
   }));
+}
+
+// Remove artefatos recorrentes de PDFs, como rodapés e marcadores de paginação.
+function cleanExtractedText(text: string): string {
+  return text
+    .replace(/\r\n/g, "\n")
+    // Remove rodapés que podem aparecer colados ao final de uma alternativa.
+    .replace(
+      /\s+Avalia(?:ç|c)[aã]o de Conhecimentos\s*[—-]\s*Simulado\s+Page\s+\d+\s+of\s+\d+\s*$/i,
+      "",
+    )
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+/g, " ").trim())
+    .filter((line) => line.length > 0)
+    .filter((line) => !/^--\s*\d+\s+of\s+\d+\s*--$/i.test(line))
+    .filter((line) => !/^(?:page|página)\s+\d+\s+of\s+\d+$/i.test(line))
+    .filter((line) => !/^avaliação de conhecimentos\s*[—-]\s*simulado$/i.test(line))
+    .join("\n")
+    .trim();
 }
 
 function toStringArray(value: unknown): string[] {

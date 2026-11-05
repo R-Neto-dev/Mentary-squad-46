@@ -53,6 +53,12 @@ curl.exe -X POST -F "file=@questoes.pdf" http://localhost:3000/extract
 O endpoint não grava nem aprova questões: ele apenas prepara a prévia para a
 revisão humana e para as próximas etapas do extrator.
 
+Para imagens e PDFs escaneados, o backend usa o Tesseract com o modelo de
+português (`por`) dentro do próprio container. Esse é um modelo de OCR
+treinado, executado localmente, portanto não exige chave de API nem envia o
+documento para um serviço externo. Quando o OCR é usado, a resposta inclui
+`data.ocr.confidence` e o formato `image` ou `pdf-ocr`.
+
 ### Descer os containers
 
 Pressione `Ctrl+C` no terminal e depois rode:
