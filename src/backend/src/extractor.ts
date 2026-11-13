@@ -1,3 +1,4 @@
+import { parseQuestionText, readAnswer } from "./question-parser";
 import { createWorker } from "tesseract.js";
 import { PDFParse } from "pdf-parse";
 import * as XLSX from "xlsx";
@@ -5,6 +6,8 @@ import * as XLSX from "xlsx";
 export type ExtractedQuestion = {
   statement: string;
   options: string[];
+  answer?: number | null;
+  warnings?: string[];
   source: {
     page?: number;
     row?: number;
@@ -23,12 +26,6 @@ export type ExtractionResult = {
     confidence: number;
   };
 };
-
-// Detecta o início de uma questão numerada, aceitando os separadores mais comuns.
-const questionStart = /^(?:quest[aã]o\s*)?(\d{1,3})[.)\-:]\s*(.+)$/i;
-
-// Detecta alternativas no padrão A), A. ou A - texto, além de marcadores de lista.
-const optionStart = /^\s*(?:\(?([A-E])\)?\s*[.)\-:]\s*|[-*]\s+)(.+)$/i;
 
 // Extrai um arquivo e escolhe o leitor adequado ao formato recebido.
 export async function extractFile(
@@ -64,7 +61,7 @@ export async function extractFile(
     };
   }
 
-  if (["csv", "txt"].includes(extension) || file.mimetype === "text/plain") {
+  if (["txt"].includes(extension) || file.mimetype === "text/plain") {
     return buildResult(
       file,
       extension === "csv" ? "csv" : "text",
@@ -72,8 +69,8 @@ export async function extractFile(
     );
   }
 
-  if (["xlsx", "xls"].includes(extension)) {
-    const workbook = XLSX.read(file.buffer, { type: "buffer" });
+  if (["csv", "xlsx", "xls"].includes(extension)) {
+    const workbook = XLSX.read(file.buffer, { type: "buffer", codepage: 65001 });
     const rows = workbook.SheetNames.flatMap((sheetName) =>
       XLSX.utils.sheet_to_json<Record<string, unknown>>(
         workbook.Sheets[sheetName],
@@ -188,6 +185,8 @@ function buildJsonResult(file: Express.Multer.File): ExtractionResult {
     return {
       statement: String(item.statement ?? item.title ?? item.enunciado ?? "").trim(),
       options: toStringArray(item.options ?? item.answer_options ?? item.alternatives),
+      answer: readAnswer(item.answer_index ?? item.gabarito ?? item.correct_answer ?? item.resposta ?? item.answer,
+        toStringArray(item.options ?? item.answer_options ?? item.alternatives).length, item.answer_index !== undefined),
       source: { row: index + 1 },
     };
   });
@@ -202,50 +201,7 @@ function buildJsonResult(file: Express.Multer.File): ExtractionResult {
 }
 
 function parseQuestions(text: string): ExtractedQuestion[] {
-  const questions: ExtractedQuestion[] = [];
-  let current: ExtractedQuestion | undefined;
-  let currentOption: number | undefined;
-  let currentPage: number | undefined;
-
-  for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line) continue;
-
-    // Marcadores internos permitem manter a página quando o PDF precisou de OCR.
-    const pageMatch = line.match(/^\[\[PAGE:(\d+)\]\]$/);
-    if (pageMatch) {
-      currentPage = Number(pageMatch[1]);
-      continue;
-    }
-
-    const questionMatch = line.match(questionStart);
-    if (questionMatch) {
-      if (current) questions.push(current);
-      current = {
-        statement: questionMatch[2].trim(),
-        options: [],
-        source: { page: currentPage },
-      };
-      currentOption = undefined;
-      continue;
-    }
-
-    const optionMatch = line.match(optionStart);
-    if (current && optionMatch) {
-      current.options.push(optionMatch[2].trim());
-      currentOption = current.options.length - 1;
-      continue;
-    }
-
-    if (currentOption !== undefined && current) {
-      current.options[currentOption] += ` ${line}`;
-    } else if (current) {
-      current.statement += ` ${line}`;
-    }
-  }
-
-  if (current) questions.push(current);
-  return questions;
+  return parseQuestionText(text);
 }
 
 function rowsToQuestions(rows: Record<string, unknown>[]): ExtractedQuestion[] {
@@ -254,6 +210,8 @@ function rowsToQuestions(rows: Record<string, unknown>[]): ExtractedQuestion[] {
       row.statement ?? row.title ?? row.enunciado ?? row.question ?? "",
     ).trim(),
     options: toStringArray(row.options ?? row.answer_options ?? row.alternatives),
+    answer: readAnswer(row.answer_index ?? row.gabarito ?? row.correct_answer ?? row.resposta ?? row.answer,
+      toStringArray(row.options ?? row.answer_options ?? row.alternatives).length, row.answer_index !== undefined),
     source: { row: index + 1 },
   }));
 }
@@ -264,7 +222,7 @@ function cleanExtractedText(text: string): string {
     .replace(/\r\n/g, "\n")
     // Remove rodapés que podem aparecer colados ao final de uma alternativa.
     .replace(
-      /\s+Avalia(?:ç|c)[aã]o de Conhecimentos\s*[—-]\s*Simulado\s+Page\s+\d+\s+of\s+\d+\s*$/i,
+      /\s+Avalia(?:ç|c)[aã]o de Conhecimentos\s*[--]\s*Simulado\s+Page\s+\d+\s+of\s+\d+\s*$/i,
       "",
     )
     .split("\n")
@@ -272,7 +230,7 @@ function cleanExtractedText(text: string): string {
     .filter((line) => line.length > 0)
     .filter((line) => !/^--\s*\d+\s+of\s+\d+\s*--$/i.test(line))
     .filter((line) => !/^(?:page|página)\s+\d+\s+of\s+\d+$/i.test(line))
-    .filter((line) => !/^avaliação de conhecimentos\s*[—-]\s*simulado$/i.test(line))
+    .filter((line) => !/^avaliação de conhecimentos\s*[--]\s*simulado$/i.test(line))
     .join("\n")
     .trim();
 }
