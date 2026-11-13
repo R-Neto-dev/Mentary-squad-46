@@ -1,0 +1,23 @@
+.profile-menu { position: relative; z-index: 30; flex-shrink: 0; }
+.profile-trigger { display: flex; align-items: center; gap: 9px; padding: 4px 10px 4px 4px; border: 1px solid #ffffff40; border-radius: 99px; background: #ffffff0d; color: #e7e4ff; cursor: pointer; }
+.profile-trigger:hover, .profile-trigger[aria-expanded=true] { background: #ffffff1a; border-color: #9edcff80; }
+.profile-avatar { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid #ffffff33; border-radius: 50%; background: linear-gradient(145deg, #6552c8, #382487); color: #fff; box-shadow: inset 0 1px 0 #ffffff20; }
+.profile-panel { position: absolute; right: 0; top: calc(100% + 10px); width: min(260px, calc(100vw - 40px)); padding: 8px; border: 1px solid #e2e6f0; border-radius: 16px; background: #fffffffa; color: #173b67; box-shadow: 0 16px 48px #130a4730, 0 3px 10px #130a4710; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); transform-origin: top right; }
+.profile-panel-heading { display: grid; gap: 4px; padding: 10px 8px 12px; border-bottom: 1px solid #e9edf5; }
+.profile-panel-heading strong { font-size: 15px; }
+.profile-panel-heading > span { color: #66758a; font-size: 12px; }
+.profile-section-label { margin: 12px 8px 6px; color: #77869a; font-size: 10px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; }
+.profile-theme-option { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 8px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: #173b67; text-align: left; cursor: pointer; }
+.profile-theme-option:hover { background: #f3f6fb; }
+.profile-theme-option[aria-checked=true] { border-color: #00aeee30; background: #00aeee0d; }
+.profile-theme-swatch { flex: 0 0 26px; height: 26px; border: 1px solid #d5deeb; border-radius: 50%; box-shadow: inset 0 1px 2px #ffffff40; }
+.swatch-blue { background: radial-gradient(circle at 30% 20%, #5141bb, #2c1d7e); border-color: #443391; }
+.swatch-white { background: #fff; }
+.profile-option-text { display: grid; gap: 4px; }
+.profile-option-text strong { font-size: 13px; font-weight: 600; }
+.profile-option-text small { color: #66758a; font-size: 11px; }
+.profile-theme-check { margin-left: auto; flex-shrink: 0; color: #00aeee; }
+.profile-trigger:focus-visible, .profile-theme-option:focus-visible { outline: 2px solid #00aeee; outline-offset: 3px; }
+.theme-light .profile-trigger { border-color: #d5e3ed; background: #f5f9fc; color: #52677f; }
+.theme-light .profile-trigger:hover, .theme-light .profile-trigger[aria-expanded=true] { border-color: #00aeee; background: #eaf8ff; }
+.theme-light .profile-avatar { background: #00aeee; border-color: #00aeee; }

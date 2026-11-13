@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import './App.css'
+import ProfileMenu from './components/ui/profile-menu'
 
 type ApiStatus = 'checking' | 'online' | 'offline'
 type Screen = 'dashboard' | 'extraction'
@@ -16,6 +17,13 @@ type ExtractedQuestion = {
 const apiUrl = import.meta.env['VITE_API_URL'] ?? 'http://localhost:3000'
 
 function App() {
+  const [lightTheme, setLightTheme] = useState(() => {
+    try { return localStorage.getItem('mentary-theme') === 'light' } catch { return false }
+  })
+  useEffect(() => {
+    document.documentElement.dataset.theme = lightTheme ? 'light' : 'blue'
+    try { localStorage.setItem('mentary-theme', lightTheme ? 'light' : 'blue') } catch { /* O tema funciona mesmo sem armazenamento. */ }
+  }, [lightTheme])
   const requestRef = useRef<AbortController | null>(null)
   const [ocrInfo, setOcrInfo] = useState('')
   const [savedQuestions, setSavedQuestions] = useState<ExtractedQuestion[]>(() => {
@@ -231,19 +239,16 @@ function App() {
   }, [])
 
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <a className="brand" href="/" onClick={(event) => { event.preventDefault(); setScreen('dashboard') }} aria-label="Mentary - início">
-          <img className="brand-logo" src="/marca_mentary_horizontal.webp" alt="Mentary - capivara" />
+    <div className={`app-shell${lightTheme ? ' theme-light' : ''}`}>
+      <header className="mentary-header">
+        <a className="mentary-home" href="/" onClick={(event) => { event.preventDefault(); setScreen('dashboard') }} aria-label="Mentary - início">
+          <img src="/marca_mentary_horizontal.webp" alt="Mentary" width="200" />
         </a>
-        <div className="topbar-actions">
-          <span className="role-label">{screen === 'dashboard' ? 'Visão geral' : 'Extrator de questões'}</span>
-          <button className="avatar" type="button" aria-label="Perfil do usuário">
-            R
-          </button>
-        </div>
+        <ProfileMenu lightTheme={lightTheme} onThemeChange={setLightTheme} />
       </header>
-
+      <aside className="mascot-column" aria-label="Mascote da Mentary">
+        <img className="mentary-mascot" src="/capivara.png" alt="Capivara da Mentary com óculos de realidade virtual" width="1280" height="1280" />
+      </aside>
       <main className="content">
         {screen === 'extraction' ? (
           <section className="extraction-screen">
@@ -324,7 +329,7 @@ function App() {
                     <div className="question-toolbar">
                       <label className="question-select">
                         <input type="checkbox" checked={selectedQuestions.includes(question.id)} onChange={() => toggleQuestion(question.id)} />
-                        <span>{selectedQuestions.includes(question.id) ? `Questão ${question.number}` : 'Não selecionada'}</span>
+                        <span className="question-number">{question.number} | Questão</span>
                       </label>
                       <button
                         className="edit-button"
@@ -333,7 +338,11 @@ function App() {
                         aria-label={editingQuestions.includes(question.id) ? `Fechar edição da questão ${question.number}` : `Editar questão ${question.number}`}
                         title={editingQuestions.includes(question.id) ? 'Fechar edição' : 'Editar questão'}
                       >
-                        {editingQuestions.includes(question.id) ? 'V' : '?'}
+                        {editingQuestions.includes(question.id) ? (
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg>
+                        ) : (
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m16 3 5 5M4 15 16 3l5 5L9 20l-6 1 1-6Z" /></svg>
+                        )}
                       </button>
                     </div>
                     {editingQuestions.includes(question.id) ? (
@@ -410,7 +419,7 @@ function App() {
                               <li key={`${question.id}-${index}`} className={question.answer === index ? 'correct-alternative' : ''}>
                                 <span className="alternative-letter" aria-hidden="true">{String.fromCharCode(65 + index)}</span>
                                 <span className="alternative-text">{alternative}</span>
-                                {question.answer === index && <span className="correct-indicator"><span aria-hidden="true">V </span>Correta</span>}
+                                {question.answer === index && <span className="correct-indicator"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="m8 12 3 3 5-6" /></svg><span className="sr-only">Alternativa correta</span></span>}
                               </li>
                             ))}
                           </ol>
