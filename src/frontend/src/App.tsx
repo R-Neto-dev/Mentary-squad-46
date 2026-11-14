@@ -21,7 +21,7 @@ function App() {
     try { return localStorage.getItem('mentary-theme') === 'light' } catch { return false }
   })
   useEffect(() => {
-    document.documentElement.dataset.theme = lightTheme ? 'light' : 'blue'
+    document.documentElement.dataset['theme'] = lightTheme ? 'light' : 'blue'
     try { localStorage.setItem('mentary-theme', lightTheme ? 'light' : 'blue') } catch { /* O tema funciona mesmo sem armazenamento. */ }
   }, [lightTheme])
   const requestRef = useRef<AbortController | null>(null)
@@ -103,14 +103,14 @@ function App() {
         data?: { ocr?: { confidence: number }; format?: string; text?: string; questions?: Array<{ statement: string; options: string[]; answer?: number | null; warnings?: string[]; source?: { row?: number } }> }
       }
       if (!response.ok) throw new Error(data.message ?? 'Falha ao extrair o PDF.')
-      const extractedQuestions = (data.data?.questions ?? data.questions ?? []).map((question, index) => ({
+      const extractedQuestions = (data.data?.questions ?? data.questions ?? []).map((question, index): ExtractedQuestion => ({
         id: `question-${index + 1}`,
         number: String(question.source?.row ?? index + 1),
         statement: question.statement.replace(/_{3,}/g, '').trim(),
         alternatives: question.options,
         answer: typeof question.answer === 'number' && Number.isInteger(question.answer) && question.answer >= 0 && question.answer < question.options.length ? question.answer : null,
-        warnings: question.warnings,
-        type: question.options.length ? 'MULTIPLA ESCOLHA' as const : 'DISCURSIVA' as const,
+        ...(question.warnings ? { warnings: question.warnings } : {}),
+        type: question.options.length ? 'MULTIPLA ESCOLHA' : 'DISCURSIVA',
       }))
       setQuestions(extractedQuestions)
       setSelectedQuestions(extractedQuestions.map((question) => question.id))

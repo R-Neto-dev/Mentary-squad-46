@@ -48,10 +48,10 @@ export default function ProfileMenu({ lightTheme, onThemeChange }: ProfileMenuPr
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         onClick={() => setOpen(!open)}
-        onKeyDown={(event) => {
+        onKeyDown={(event: React.KeyboardEvent<HTMLButtonElement>) => {
           if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); setOpen(true) }
         }}
-        whileTap={reduceMotion ? undefined : { scale: 0.92 }}
+        {...(reduceMotion ? {} : { whileTap: { scale: 0.92 } })}
       >
         <motion.span className="profile-avatar" animate={{ rotate: open && !reduceMotion ? -8 : 0 }}>
           <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="8" r="3.5" /><path d="M5 21v-2a7 7 0 0 1 14 0v2" /></svg>
